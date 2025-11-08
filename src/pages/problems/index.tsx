@@ -23,13 +23,14 @@ import {
 import { Layout } from "~/components/layout";
 import { api } from "~/utils/api";
 import { useState, useMemo } from "react";
-import { FaSearch, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { FaSearch, FaChevronDown, FaChevronUp, FaCheckCircle } from "react-icons/fa";
 import { createServerSideHelpers } from "@trpc/react-query/server";
 import { appRouter } from "~/server/api/root";
 import { createInnerTRPCContext } from "~/server/api/trpc";
 import superjson from "superjson";
 import type { GetServerSideProps } from "next";
 import { tagNames, tagAltNames } from "~/constants/problem";
+import { auth } from "~/server/auth";
 
 type SortField = "title" | "difficulty" | "submissionCount";
 type SortDirection = "asc" | "desc";
@@ -60,10 +61,12 @@ const getDifficultyValue = (difficulty: string) => {
   }
 };
 
-export const getServerSideProps: GetServerSideProps = async () => {
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const session = await auth(context.req, context.res);
+
   const helpers = createServerSideHelpers({
     router: appRouter,
-    ctx: createInnerTRPCContext({ session: null }),
+    ctx: createInnerTRPCContext({ session }),
     transformer: superjson,
   });
 
@@ -87,6 +90,7 @@ export default function ProblemsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("all");
+  const [solvedFilter, setSolvedFilter] = useState("all");
   const [sortField, setSortField] = useState<SortField>("difficulty");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -95,6 +99,12 @@ export default function ProblemsPage() {
     { label: "Easy", value: "easy" },
     { label: "Medium", value: "medium" },
     { label: "Hard", value: "hard" },
+  ];
+
+  const solvedOptions = [
+    { label: "All Problems", value: "all" },
+    { label: "Solved", value: "solved" },
+    { label: "Unsolved", value: "unsolved" },
   ];
 
   const allTags = useMemo(() => {
@@ -136,7 +146,11 @@ export default function ProblemsPage() {
         problem.difficulty.toLowerCase() === difficultyFilter.toLowerCase();
       const matchesTag =
         tagFilter === "all" || problem.tags?.some((tag) => tag === tagFilter);
-      return matchesSearch && matchesDifficulty && matchesTag;
+      const matchesSolved =
+        solvedFilter === "all" ||
+        (solvedFilter === "solved" && problem.isSolved) ||
+        (solvedFilter === "unsolved" && !problem.isSolved);
+      return matchesSearch && matchesDifficulty && matchesTag && matchesSolved;
     })
     .sort((a, b) => {
       const multiplier = sortDirection === "asc" ? 1 : -1;
@@ -297,6 +311,45 @@ export default function ProblemsPage() {
                   ))}
                 </MenuList>
               </Menu>
+
+              <Menu>
+                <MenuButton
+                  as={Button}
+                  rightIcon={<FaChevronDown color="#d4d4d8" size={10} />}
+                  bg="whiteAlpha.50"
+                  _hover={{ bg: "whiteAlpha.100", borderColor: "gray.600" }}
+                  _active={{ bg: "whiteAlpha.150" }}
+                  _focus={{ borderColor: "blue.500", boxShadow: "none" }}
+                  color="white"
+                  w="200px"
+                  fontWeight="normal"
+                  textAlign="left"
+                  justifyContent="flex-start"
+                >
+                  {solvedOptions.find((opt) => opt.value === solvedFilter)
+                    ?.label ?? "All Problems"}
+                </MenuButton>
+                <MenuList
+                  bg="brand.secondary"
+                  borderColor="gray.800"
+                  p={0}
+                  borderRadius="md"
+                  minW="200px"
+                >
+                  {solvedOptions.map((option) => (
+                    <MenuItem
+                      key={option.value}
+                      onClick={() => setSolvedFilter(option.value)}
+                      bg="brand.secondary"
+                      _hover={{ bg: "gray.700" }}
+                      color="white"
+                      borderRadius="md"
+                    >
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </MenuList>
+              </Menu>
             </HStack>
           </HStack>
 
@@ -409,9 +462,15 @@ export default function ProblemsPage() {
                     onClick={(e) => handleProblemClick(e, problem.slug)}
                     borderBottom="1px solid"
                     borderColor="gray.800"
+                    opacity={problem.isSolved ? 0.7 : 1}
                   >
                     <Td color="white" borderBottom="none">
-                      {problem.title}
+                      <HStack spacing={2}>
+                        {problem.isSolved && (
+                          <FaCheckCircle color="#48BB78" size={16} />
+                        )}
+                        <Text>{problem.title}</Text>
+                      </HStack>
                     </Td>
                     <Td borderBottom="none">
                       <Badge

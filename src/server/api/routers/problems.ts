@@ -60,10 +60,30 @@ export const problemsRouter = createTRPCRouter({
         },
       });
 
+      // If user is authenticated, check which problems they've solved
+      let solvedProblemIds: Set<string> = new Set();
+      if (ctx.session?.user?.id) {
+        const solvedProblems = await ctx.db.problem.findMany({
+          where: {
+            submissions: {
+              some: {
+                userId: ctx.session.user.id,
+                status: "ACCEPTED",
+              },
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+        solvedProblemIds = new Set(solvedProblems.map((p) => p.id));
+      }
+
       console.log("Found problems:", problems);
       return problems.map((problem) => ({
         ...problem,
         submissionCount: problem._count.submissions,
+        isSolved: solvedProblemIds.has(problem.id),
       }));
     } catch (error) {
       console.error("Error fetching problems:", error);
