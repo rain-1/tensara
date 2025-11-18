@@ -8,7 +8,7 @@ import {
   Text,
 } from "@chakra-ui/react";
 import { IoMdTime } from "react-icons/io";
-import { FiTrendingUp, FiBookOpen } from "react-icons/fi";
+import { FiTrendingUp, FiBookOpen, FiDownload } from "react-icons/fi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -82,6 +82,27 @@ const ProblemView = ({
           }}
         >
           Leaderboard
+        </Button>
+        <Button
+          variant="outline"
+          height="28px"
+          px={2}
+          py={1}
+          fontSize="xs"
+          as="a"
+          href={`/api/problems/${problem.slug}/download`}
+          download
+          leftIcon={<Icon as={FiDownload} boxSize={3} />}
+          borderRadius="lg"
+          borderColor="whiteAlpha.200"
+          color="gray.300"
+          cursor="pointer"
+          _hover={{
+            bg: "whiteAlpha.50",
+            color: "white",
+          }}
+        >
+          Download Package
         </Button>
         {problem.referenceSolution && onViewReference && (
           <Button
