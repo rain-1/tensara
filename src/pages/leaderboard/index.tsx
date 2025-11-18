@@ -43,6 +43,7 @@ import {
 import { useState } from "react";
 import { api } from "~/utils/api";
 import { Layout } from "~/components/layout";
+import { GflopsHistogram } from "~/components/leaderboard/GflopsHistogram";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { createServerSideHelpers } from "@trpc/react-query/server";
@@ -385,6 +386,9 @@ const LeaderboardPage: NextPage = () => {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
               >
+                {/* GFLOPS Distribution Histogram */}
+                <GflopsHistogram gpuType={selectedGpu} />
+
                 {rankedUsers && rankedUsers.length > 0 ? (
                   <Box overflowX="auto" borderRadius="md" boxShadow="md">
                     {isMobile ? (

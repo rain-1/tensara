@@ -256,6 +256,64 @@ export const submissionsRouter = createTRPCRouter({
       problemLeaderboardCache.set(cacheKey, data);
       return data;
     }),
+
+  // Get GFLOPS distribution for histogram
+  getGflopsDistribution: publicProcedure
+    .input(
+      z.object({
+        gpuType: z.string().optional().default("all"),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      // Get all accepted submissions with GFLOPS data
+      const submissions = await ctx.db.submission.findMany({
+        where: {
+          status: "ACCEPTED",
+          gflops: { not: null },
+          ...(input.gpuType !== "all" ? { gpuType: input.gpuType } : {}),
+        },
+        select: {
+          id: true,
+          gflops: true,
+          gpuType: true,
+          userId: true,
+          user: {
+            select: {
+              username: true,
+            },
+          },
+        },
+        orderBy: { gflops: "desc" },
+      });
+
+      // Calculate best submission per user-GPU combination
+      const userGpuBestMap = new Map<
+        string,
+        { gflops: number; userId: string; username: string | null }
+      >();
+
+      for (const submission of submissions) {
+        if (!submission.gflops) continue;
+
+        const userGpuKey = `${submission.userId}-${submission.gpuType}`;
+        const currentBest = userGpuBestMap.get(userGpuKey);
+
+        if (!currentBest || submission.gflops > currentBest.gflops) {
+          userGpuBestMap.set(userGpuKey, {
+            gflops: submission.gflops,
+            userId: submission.userId,
+            username: submission.user.username,
+          });
+        }
+      }
+
+      // Return array of GFLOPS values and user IDs
+      return Array.from(userGpuBestMap.values()).map((entry) => ({
+        gflops: entry.gflops,
+        userId: entry.userId,
+        username: entry.username,
+      }));
+    }),
 });
 
 async function computeLeaderboardData(
