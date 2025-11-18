@@ -162,54 +162,65 @@ def run_sample_case(
     problem_name, problem_def, solution_code, compiled_lib, dtype, language, param_func=None
 ):
     """
-    Run the sample test case of a problem and return result + output.
+    Run multiple sample test cases of a problem and return results + output for each.
     """
     try:
         dtype = utils.DTYPE_MAP[dtype]
         problem = utils.load_problem_module(problem_name, problem_def)
         solution_func = utils.make_solution_func(language, solution_code, compiled_lib, problem)
 
-        sample = problem.generate_sample(dtype)
-        input_tensors = sample["create_inputs"]()
-        expected_output = problem.reference_solution(*input_tensors).cpu()
-        actual_output = torch.zeros_like(expected_output, device="cuda").contiguous()
-        if param_func is None:
-            parameters = utils.make_parameters(
-                language, solution_func, input_tensors, actual_output, problem, sample
-            )
-        else:
-            parameters = param_func(
-                language, solution_func, input_tensors, actual_output, problem, sample
-            )
+        # Get first 3 test cases
+        test_cases = problem.generate_test_cases(dtype)[:3]
 
-        if language in ("cuda", "mojo"):
-            with utils.SystemOutputCapture() as capture:
-                solution_func(*parameters)
+        for test_idx, test_case in enumerate(test_cases):
+            input_tensors = test_case["create_inputs"]()
+            expected_output = problem.reference_solution(*input_tensors).cpu()
+            actual_output = torch.zeros_like(expected_output, device="cuda").contiguous()
+            if param_func is None:
+                parameters = utils.make_parameters(
+                    language, solution_func, input_tensors, actual_output, problem, test_case
+                )
+            else:
+                parameters = param_func(
+                    language, solution_func, input_tensors, actual_output, problem, test_case
+                )
 
-            captured_stdout = capture.stdout_content
-            captured_stderr = capture.stderr_content
-        else:
-            stdout_buf = io.StringIO()
-            stderr_buf = io.StringIO()
-            with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stderr_buf):
-                solution_func(*parameters)
+            if language in ("cuda", "mojo"):
+                with utils.SystemOutputCapture() as capture:
+                    solution_func(*parameters)
 
-            captured_stdout = stdout_buf.getvalue()
-            captured_stderr = stderr_buf.getvalue()
+                captured_stdout = capture.stdout_content
+                captured_stderr = capture.stderr_content
+            else:
+                stdout_buf = io.StringIO()
+                stderr_buf = io.StringIO()
+                with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stderr_buf):
+                    solution_func(*parameters)
 
-        torch.cuda.synchronize()
-        is_correct, debug_info = problem.verify_result(expected_output, actual_output.cpu(), dtype)
-        yield {
-            "status": "PASSED" if is_correct else "FAILED",
-            "input": utils.to_lossless_jsonable(
-                [t if not isinstance(t, torch.Tensor) else t for t in input_tensors]
-            ),
-            "output": utils.to_lossless_jsonable(actual_output),
-            "expected_output": utils.to_lossless_jsonable(expected_output),
-            "debug_info": utils.to_lossless_jsonable(debug_info),
-            "stdout": captured_stdout,
-            "stderr": captured_stderr,
-        }
+                captured_stdout = stdout_buf.getvalue()
+                captured_stderr = stderr_buf.getvalue()
+
+            torch.cuda.synchronize()
+            is_correct, debug_info = problem.verify_result(expected_output, actual_output.cpu(), dtype)
+
+            yield {
+                "test_id": test_idx,
+                "test_name": test_case.get("name", f"Test {test_idx + 1}"),
+                "status": "PASSED" if is_correct else "FAILED",
+                "input": utils.to_lossless_jsonable(
+                    [t if not isinstance(t, torch.Tensor) else t for t in input_tensors]
+                ),
+                "output": utils.to_lossless_jsonable(actual_output),
+                "expected_output": utils.to_lossless_jsonable(expected_output),
+                "debug_info": utils.to_lossless_jsonable(debug_info),
+                "stdout": captured_stdout,
+                "stderr": captured_stderr,
+            }
+
+            # Clean up memory between test cases
+            del input_tensors, expected_output, actual_output, parameters
+            gc.collect()
+            torch.cuda.empty_cache()
 
     except Exception as e:
         yield {"status": "ERROR", "message": str(e), "details": traceback.format_exc()}

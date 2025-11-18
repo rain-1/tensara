@@ -94,6 +94,7 @@ export default function ProblemPage({ slug }: { slug: string }) {
 
   const {
     output: consoleOutput,
+    outputs: consoleOutputs,
     status,
     isRunning,
     startSampleRun,
@@ -502,6 +503,7 @@ export default function ProblemPage({ slug }: { slug: string }) {
           bottomContent={
             <ResizableConsole
               output={consoleOutput}
+              outputs={consoleOutputs}
               status={status}
               isRunning={isRunning}
             />

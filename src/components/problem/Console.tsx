@@ -1,4 +1,4 @@
-import { Box, Text, VStack, HStack, Spinner, Badge } from "@chakra-ui/react";
+import { Box, Text, VStack, HStack, Spinner, Badge, Tabs, TabList, Tab, TabPanels, TabPanel } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import {
   SampleStatus,
@@ -184,11 +184,50 @@ const OutputBox = ({
 
 type ConsoleProps = {
   output: SampleOutput | null;
+  outputs: SampleOutput[];
   status: SampleStatusType;
   isRunning: boolean;
 };
 
-const ResizableConsole = ({ output, status, isRunning }: ConsoleProps) => {
+const TestResultContent = ({ output }: { output: SampleOutput }) => (
+  <VStack align="stretch" spacing={3}>
+    <OutputBox content={output?.input} type="input" />
+    <OutputBox content={output?.output} type="output" />
+    <OutputBox content={output?.expected_output} type="expected" />
+
+    {output?.stdout && (
+      <OutputBox
+        title="Standard Output"
+        content={output.stdout}
+        type="default"
+      />
+    )}
+
+    {output?.stderr && (
+      <OutputBox content={output.stderr} type="error" />
+    )}
+
+    {output?.message && (
+      <OutputBox
+        title="Error Message"
+        content={output.message}
+        type="error"
+      />
+    )}
+
+    {output?.details && (
+      <OutputBox
+        title="Error Details"
+        content={output.details}
+        type="error"
+      />
+    )}
+  </VStack>
+);
+
+const ResizableConsole = ({ output, outputs, status, isRunning }: ConsoleProps) => {
+  const hasMultipleTests = outputs.length > 1;
+
   return (
     <Box w="100%" h="100%" bg="#111111" borderRadius="xl" overflow="hidden">
       <Box
@@ -230,39 +269,33 @@ const ResizableConsole = ({ output, status, isRunning }: ConsoleProps) => {
               <StatusBadge status={status} isRunning={isRunning} />
             </HStack>
 
-            <VStack align="stretch" spacing={3}>
-              <OutputBox content={output?.input} type="input" />
-              <OutputBox content={output?.output} type="output" />
-              <OutputBox content={output?.expected_output} type="expected" />
-
-              {output?.stdout && (
-                <OutputBox
-                  title="Standard Output"
-                  content={output.stdout}
-                  type="default"
-                />
-              )}
-
-              {output?.stderr && (
-                <OutputBox content={output.stderr} type="error" />
-              )}
-
-              {output?.message && (
-                <OutputBox
-                  title="Error Message"
-                  content={output.message}
-                  type="error"
-                />
-              )}
-
-              {output?.details && (
-                <OutputBox
-                  title="Error Details"
-                  content={output.details}
-                  type="error"
-                />
-              )}
-            </VStack>
+            {hasMultipleTests ? (
+              <Tabs size="sm" variant="soft-rounded" colorScheme="blue">
+                <TabList>
+                  {outputs.map((testOutput, idx) => (
+                    <Tab
+                      key={idx}
+                      color="#858585"
+                      _selected={{
+                        color: testOutput.status === SampleStatus.PASSED ? "#4EC9B0" : "#FF5D5D",
+                        bg: testOutput.status === SampleStatus.PASSED ? "#1B352B" : "#351B1B",
+                      }}
+                    >
+                      {testOutput.test_name || `Test ${idx + 1}`}
+                    </Tab>
+                  ))}
+                </TabList>
+                <TabPanels>
+                  {outputs.map((testOutput, idx) => (
+                    <TabPanel key={idx} px={0} pt={4}>
+                      <TestResultContent output={testOutput} />
+                    </TabPanel>
+                  ))}
+                </TabPanels>
+              </Tabs>
+            ) : (
+              <TestResultContent output={output!} />
+            )}
           </VStack>
         )}
       </Box>

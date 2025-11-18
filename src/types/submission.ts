@@ -244,4 +244,6 @@ export type SampleOutput = {
   expected_output?: string;
   ptx?: string;
   sass?: string;
+  test_id?: number;
+  test_name?: string;
 };

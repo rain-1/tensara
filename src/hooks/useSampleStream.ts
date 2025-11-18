@@ -46,6 +46,7 @@ const formatParameters = (data: unknown): string =>
 export function useSampleStream() {
   const toast = useToast();
   const [output, setOutput] = useState<SampleOutput | null>(null);
+  const [outputs, setOutputs] = useState<SampleOutput[]>([]);
   const [status, setStatus] = useState<SampleStatusType>(SampleStatus.IDLE);
   const [isRunning, setIsRunning] = useState(false);
   const [ptxContent, setPtxContent] = useState<string | null>(null);
@@ -60,6 +61,7 @@ export function useSampleStream() {
     }) => {
       setIsRunning(true);
       setOutput(null);
+      setOutputs([]);
       setStatus(SampleStatus.IN_QUEUE);
 
       try {
@@ -90,7 +92,10 @@ export function useSampleStream() {
 
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            setIsRunning(false);
+            break;
+          }
 
           buffer += decoder.decode(value, { stream: true });
 
@@ -153,7 +158,7 @@ export function useSampleStream() {
               case SampleStatus.PASSED:
               case SampleStatus.FAILED:
                 setStatus(data.status);
-                setOutput(() => ({
+                const newOutput: SampleOutput = {
                   status: data.status,
                   input: data.input ? formatParameters(data.input) : undefined,
                   output: data.output ? formatVector(data.output) : undefined,
@@ -164,8 +169,12 @@ export function useSampleStream() {
                     : undefined,
                   ptx: ptxContent ?? undefined,
                   sass: sassContent ?? undefined,
-                }));
-                setIsRunning(false);
+                  test_id: (data as any).test_id,
+                  test_name: (data as any).test_name,
+                };
+                setOutputs(prev => [...prev, newOutput]);
+                setOutput(newOutput); // Keep last output for backward compatibility
+                // Don't stop running until we get all results or an error
                 break;
 
               default:
@@ -190,5 +199,5 @@ export function useSampleStream() {
     [toast, ptxContent, sassContent]
   );
 
-  return { output, status, isRunning, startSampleRun, ptxContent, sassContent };
+  return { output, outputs, status, isRunning, startSampleRun, ptxContent, sassContent };
 }
