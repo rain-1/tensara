@@ -48,6 +48,7 @@ import NextLink from "next/link";
 
 import { getStatusIcon } from "~/constants/problem";
 import { useSplitPanel } from "./SplitPanel";
+import { GflopsHistogram } from "~/components/leaderboard/GflopsHistogram";
 
 // Define more specific types for the response data - these match the types in src/types/submission.ts
 type ResponseTypeMap = {
@@ -77,6 +78,7 @@ interface SubmissionResultsProps {
   onBackToProblem: () => void;
   onViewSubmissions: () => void;
   submissionId?: string | null;
+  gpuType?: string;
 }
 
 const getStatusMessage = (
@@ -127,6 +129,7 @@ const SubmissionResults = ({
   onBackToProblem,
   onViewSubmissions,
   submissionId,
+  gpuType = "all",
 }: SubmissionResultsProps) => {
   const { splitRatio } = useSplitPanel();
   const useCompactLabels = splitRatio < 40;
@@ -379,35 +382,42 @@ const SubmissionResults = ({
 
       {/* Performance and Runtime Stats (when submission is accepted) */}
       {Boolean(metaStatus) && metaStatus === SubmissionStatus.ACCEPTED && (
-        <Box bg="whiteAlpha.50" p={4} borderRadius="xl">
-          <SimpleGrid columns={2} spacing={4}>
-            {getTypedResponse(SubmissionStatus.ACCEPTED)?.avg_gflops !==
-              undefined && (
+        <>
+          <Box bg="whiteAlpha.50" p={4} borderRadius="xl">
+            <SimpleGrid columns={2} spacing={4}>
+              {getTypedResponse(SubmissionStatus.ACCEPTED)?.avg_gflops !==
+                undefined && (
+                <Box>
+                  <Text color="whiteAlpha.700" mb={1}>
+                    Average Performance
+                  </Text>
+                  <Heading size="md">
+                    {getTypedResponse(
+                      SubmissionStatus.ACCEPTED
+                    )!.avg_gflops!.toFixed(2)}{" "}
+                    GFLOPS
+                  </Heading>
+                </Box>
+              )}
               <Box>
                 <Text color="whiteAlpha.700" mb={1}>
-                  Average Performance
+                  Average Runtime
                 </Text>
                 <Heading size="md">
                   {getTypedResponse(
                     SubmissionStatus.ACCEPTED
-                  )!.avg_gflops!.toFixed(2)}{" "}
-                  GFLOPS
+                  )?.avg_runtime_ms?.toFixed(2) ?? "N/A"}{" "}
+                  ms
                 </Heading>
               </Box>
-            )}
-            <Box>
-              <Text color="whiteAlpha.700" mb={1}>
-                Average Runtime
-              </Text>
-              <Heading size="md">
-                {getTypedResponse(
-                  SubmissionStatus.ACCEPTED
-                )?.avg_runtime_ms?.toFixed(2) ?? "N/A"}{" "}
-                ms
-              </Heading>
-            </Box>
-          </SimpleGrid>
-        </Box>
+            </SimpleGrid>
+          </Box>
+
+          {/* GFLOPS Distribution Histogram */}
+          {getTypedResponse(SubmissionStatus.ACCEPTED)?.avg_gflops !== undefined && (
+            <GflopsHistogram gpuType={gpuType} />
+          )}
+        </>
       )}
 
       {/* Wrong Answer Debug Info */}

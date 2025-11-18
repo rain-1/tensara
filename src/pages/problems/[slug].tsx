@@ -447,6 +447,7 @@ export default function ProblemPage({ slug }: { slug: string }) {
             onBackToProblem={() => setViewType("problem")}
             onViewSubmissions={() => setViewType("submissions")}
             submissionId={submissionId}
+            gpuType={selectedGpuType}
           />
         ) : null;
       default:
